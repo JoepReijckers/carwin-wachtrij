@@ -28,6 +28,8 @@
 * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
 html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'DM Sans', sans-serif; overflow: hidden; }
 .app { display: flex; flex-direction: column; height: 100dvh; }
+#tab-wachtrij { display: flex; flex-direction: column; flex: 1; overflow: hidden; min-height: 0; }
+#tab-kalibratie { display: none; flex-direction: column; flex: 1; overflow: hidden; min-height: 0; }
 
 /* TOPBAR */
 .topbar { background: var(--bg); padding: 48px 18px 0; border-bottom: 0.5px solid var(--border); flex-shrink: 0; }
@@ -196,7 +198,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
   </div>
 
   <!-- WACHTRIJ SECTIE -->
-  <div id="tab-wachtrij">
+  <div id="tab-wachtrij" style="display:flex;flex-direction:column;flex:1;overflow:hidden;min-height:0;">
     <div class="stats-row">
       <div class="stat"><div class="stat-val" id="s-totaal">—</div><div class="stat-lbl">Open</div></div>
       <div class="stat"><div class="stat-val red" id="s-urgent">—</div><div class="stat-lbl">Actie &gt;24u</div></div>
@@ -223,7 +225,7 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
   </div>
 
   <!-- KALIBRATIE SECTIE -->
-  <div id="tab-kalibratie" style="display:none; flex-direction:column; flex:1; overflow:hidden;">
+  <div id="tab-kalibratie" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-height:0;">
     <div class="stats-row">
       <div class="stat"><div class="stat-val teal" id="k-totaal">—</div><div class="stat-lbl">Logs totaal</div></div>
       <div class="stat"><div class="stat-val" id="k-types">—</div><div class="stat-lbl">Voertuigtypes</div></div>
@@ -277,7 +279,10 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
     <div class="modal-handle"></div>
     <div class="modal-title">Kalibratie fout vastleggen</div>
     <div class="section-divider">Voertuig</div>
-    <div class="form-row"><label>Kenteken (optioneel)</label><input type="text" id="k-kenteken" placeholder="bijv. HV-948-D" autocomplete="off" autocapitalize="characters"></div>
+    <div class="form-row">
+      <label>Kenteken <span id="k-rdw-status" style="font-size:10px;color:var(--text3);font-weight:400;letter-spacing:0;text-transform:none;margin-left:4px;"></span></label>
+      <input type="text" id="k-kenteken" placeholder="bijv. HV-948-D" autocomplete="off" autocapitalize="characters" oninput="formatKenteken(this)" onblur="lookupKenteken()">
+    </div>
     <div class="form-row-2">
       <div class="form-row" style="margin-bottom:0"><label>Merk</label><input type="text" id="k-merk" placeholder="Renault" autocomplete="off"></div>
       <div class="form-row" style="margin-bottom:0"><label>Model</label><input type="text" id="k-model" placeholder="Austral" autocomplete="off"></div>
@@ -343,7 +348,7 @@ function switchTab(tab, btn) {
   activeTab = tab;
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   btn.classList.add('active');
-  document.getElementById('tab-wachtrij').style.display = tab === 'wachtrij' ? 'block' : 'none';
+  document.getElementById('tab-wachtrij').style.display = tab === 'wachtrij' ? 'flex' : 'none';
   const kt = document.getElementById('tab-kalibratie');
   kt.style.display = tab === 'kalibratie' ? 'flex' : 'none';
   document.getElementById('page-title').textContent = tab === 'wachtrij' ? 'Wachtrij' : 'Kalibraties';
@@ -601,6 +606,81 @@ async function saveKalibratie() {
   toast('Kalibratie log opgeslagen ✓');
   closeModal('modal-k');
   loadKalibraties();
+}
+
+// =================== RDW KENTEKEN LOOKUP ===================
+function formatKenteken(input) {
+  // Strip alles behalve letters en cijfers, uppercase
+  let val = input.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+  input.value = val;
+}
+
+async function lookupKenteken() {
+  const raw = document.getElementById('k-kenteken').value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+  const statusEl = document.getElementById('k-rdw-status');
+  if (raw.length < 4) return;
+
+  statusEl.textContent = '⏳ zoeken...';
+  statusEl.style.color = 'var(--amber)';
+
+  try {
+    // RDW open data API
+    const url = `https://opendata.rdw.nl/resource/m9d7-ebf2.json?kenteken=${raw}`;
+    const res = await fetch(url);
+    const data = await res.json();
+
+    if (!data || data.length === 0) {
+      statusEl.textContent = '✗ niet gevonden';
+      statusEl.style.color = 'var(--red)';
+      return;
+    }
+
+    const v = data[0];
+    const merk = v.merk ? capitalize(v.merk) : '';
+    const model = v.handelsbenaming ? capitalize(v.handelsbenaming) : '';
+    const jaar = v.datum_eerste_toelating ? v.datum_eerste_toelating.substring(0, 4) : '';
+
+    if (merk) document.getElementById('k-merk').value = merk;
+    if (model) document.getElementById('k-model').value = model;
+    if (jaar) document.getElementById('k-jaar').value = jaar;
+
+    // Format kenteken met streepjes voor weergave
+    document.getElementById('k-kenteken').value = formatKentekenDisplay(raw);
+
+    statusEl.textContent = '✓ gevonden';
+    statusEl.style.color = 'var(--green)';
+    setTimeout(() => { statusEl.textContent = ''; }, 3000);
+
+  } catch(e) {
+    statusEl.textContent = '✗ fout bij ophalen';
+    statusEl.style.color = 'var(--red)';
+  }
+}
+
+function capitalize(str) {
+  if (!str) return '';
+  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase();
+}
+
+function formatKentekenDisplay(raw) {
+  // Bekende Nederlandse kenteken formaten
+  const formats = [
+    /^([A-Z]{2})(\d{2})(\d{2})$/, // XX-99-99
+    /^(\d{2})(\d{2})([A-Z]{2})$/, // 99-99-XX
+    /^(\d{2})([A-Z]{2})(\d{2})$/, // 99-XX-99
+    /^([A-Z]{2})(\d{2})([A-Z]{2})$/, // XX-99-XX
+    /^([A-Z]{2})([A-Z]{2})(\d{2})$/, // XX-XX-99
+    /^(\d{2})([A-Z]{2})([A-Z]{2})$/, // 99-XX-XX
+    /^([A-Z]{3})(\d{2})([A-Z])$/,  // XXX-99-X
+    /^([A-Z])(\d{2})([A-Z]{3})$/,  // X-99-XXX
+    /^([A-Z]{3})(\d{3})$/,         // XXX-999 (oud)
+    /^(\d{3})([A-Z]{3})$/,         // 999-XXX (oud)
+  ];
+  for (const fmt of formats) {
+    const m = raw.match(fmt);
+    if (m) return [m[1],m[2],m[3]].filter(Boolean).join('-');
+  }
+  return raw;
 }
 
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
