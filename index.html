@@ -249,8 +249,26 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
   <div class="modal">
     <div class="modal-handle"></div>
     <div class="modal-title" id="modal-w-title">Nieuw dossier</div>
-    <div class="form-row"><label>Kenteken</label><input type="text" id="w-kenteken" placeholder="bijv. AB-123-C" autocomplete="off" autocapitalize="characters"></div>
-    <div class="form-row"><label>Voertuig</label><input type="text" id="w-model" placeholder="bijv. VW Golf 2021" autocomplete="off"></div>
+    <div class="form-row">
+      <label>Kenteken <span id="w-rdw-status" style="font-size:10px;color:var(--text3);font-weight:400;letter-spacing:0;text-transform:none;margin-left:4px;"></span></label>
+      <input type="text" id="w-kenteken" placeholder="bijv. AB-123-C" autocomplete="off" autocapitalize="characters" oninput="formatKenteken(this)" onblur="lookupWKenteken()">
+    </div>
+    <div id="w-voertuig-card" style="display:none; margin-bottom:13px;">
+      <div id="w-voertuig-summary" onclick="toggleVoertuigCard()" style="display:flex;align-items:center;justify-content:space-between;background:var(--bg3);border:0.5px solid var(--border2);border-radius:var(--radius-sm);padding:10px 13px;cursor:pointer;">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span style="font-size:18px;">🚗</span>
+          <div>
+            <div id="w-voertuig-title" style="font-size:14px;font-weight:600;color:var(--text);"></div>
+            <div id="w-voertuig-sub" style="font-size:11px;color:var(--text2);margin-top:1px;"></div>
+          </div>
+        </div>
+        <span id="w-voertuig-arrow" style="font-size:12px;color:var(--text3);transition:transform 0.2s;">▼</span>
+      </div>
+      <div id="w-voertuig-details" style="display:none;background:var(--bg3);border:0.5px solid var(--border2);border-top:none;border-radius:0 0 var(--radius-sm) var(--radius-sm);padding:12px 13px;">
+        <div id="w-voertuig-grid" style="display:grid;grid-template-columns:1fr 1fr;gap:8px 14px;"></div>
+      </div>
+    </div>
+    <input type="hidden" id="w-model">
     <div class="form-row"><label>Klant</label><input type="text" id="w-klant" placeholder="Naam klant" autocomplete="off"></div>
     <div class="form-row"><label>Reden / wacht op</label>
       <select id="w-status">
@@ -454,6 +472,10 @@ function openWerkorderModal() {
   document.getElementById('modal-w-title').textContent = 'Nieuw dossier';
   ['w-kenteken','w-model','w-klant','w-note'].forEach(id => document.getElementById(id).value = '');
   document.getElementById('w-status').value = 'Polis verificatie';
+  document.getElementById('w-voertuig-card').style.display = 'none';
+  document.getElementById('w-voertuig-details').style.display = 'none';
+  document.getElementById('w-voertuig-arrow').style.transform = 'rotate(0deg)';
+  document.getElementById('w-rdw-status').textContent = '';
   setWPrio('Normaal');
   document.getElementById('modal-w').classList.add('open');
 }
@@ -610,9 +632,90 @@ async function saveKalibratie() {
 
 // =================== RDW KENTEKEN LOOKUP ===================
 function formatKenteken(input) {
-  // Strip alles behalve letters en cijfers, uppercase
   let val = input.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
   input.value = val;
+}
+
+// Werkorder lookup
+async function lookupWKenteken() {
+  const raw = document.getElementById('w-kenteken').value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+  const statusEl = document.getElementById('w-rdw-status');
+  if (raw.length < 4) return;
+
+  statusEl.textContent = '⏳ zoeken...';
+  statusEl.style.color = 'var(--amber)';
+
+  try {
+    const url = `https://opendata.rdw.nl/resource/m9d7-ebf2.json?kenteken=${raw}`;
+    const res = await fetch(url);
+    const data = await res.json();
+
+    if (!data || data.length === 0) {
+      statusEl.textContent = '✗ niet gevonden';
+      statusEl.style.color = 'var(--red)';
+      document.getElementById('w-voertuig-card').style.display = 'none';
+      return;
+    }
+
+    const v = data[0];
+    const merk = v.merk ? capitalize(v.merk) : '';
+    const handels = v.handelsbenaming ? capitalize(v.handelsbenaming) : '';
+    const jaar = v.datum_eerste_toelating ? v.datum_eerste_toelating.substring(0,4) : '';
+    const kleur = v.eerste_kleur ? capitalize(v.eerste_kleur) : '';
+    const brandstof = v.brandstof_omschrijving ? capitalize(v.brandstof_omschrijving) : '';
+    const carross = v.inrichting ? capitalize(v.inrichting) : '';
+    const cilinderinhoud = v.cilinderinhoud ? v.cilinderinhoud + ' cc' : '';
+    const vermogen = v.vermogen_massarijklaar ? v.vermogen_massarijklaar + ' kW' : '';
+    const apk = v.vervaldatum_apk ? formatDatum(v.vervaldatum_apk) : '';
+    const datum_tenaam = v.datum_tenaamstelling ? formatDatum(v.datum_tenaamstelling) : '';
+    const massa = v.massa_rijklaar ? v.massa_rijklaar + ' kg' : '';
+
+    // Sla model op als hidden field
+    document.getElementById('w-model').value = `${merk} ${handels} ${jaar}`.trim();
+
+    // Format kenteken
+    document.getElementById('w-kenteken').value = formatKentekenDisplay(raw);
+
+    // Toon summary
+    document.getElementById('w-voertuig-title').textContent = `${merk} ${handels}`;
+    document.getElementById('w-voertuig-sub').textContent = [jaar, kleur, brandstof].filter(Boolean).join(' · ');
+    document.getElementById('w-voertuig-card').style.display = 'block';
+
+    // Bouw details grid
+    const details = [
+      ['Merk', merk], ['Model', handels], ['Bouwjaar', jaar],
+      ['Kleur', kleur], ['Brandstof', brandstof], ['Carrosserie', carross],
+      ['Cilinderinhoud', cilinderinhoud], ['Vermogen', vermogen],
+      ['Massa rijklaar', massa], ['APK verval', apk],
+      ['Tenaamstelling', datum_tenaam],
+    ].filter(([,v]) => v);
+
+    document.getElementById('w-voertuig-grid').innerHTML = details.map(([lbl, val]) =>
+      `<div><div style="font-size:10px;color:var(--text3);font-weight:600;text-transform:uppercase;letter-spacing:0.05em;margin-bottom:2px;">${lbl}</div>
+      <div style="font-size:13px;color:var(--text);">${val}</div></div>`
+    ).join('');
+
+    statusEl.textContent = '✓ gevonden';
+    statusEl.style.color = 'var(--green)';
+    setTimeout(() => { statusEl.textContent = ''; }, 3000);
+
+  } catch(e) {
+    statusEl.textContent = '✗ fout';
+    statusEl.style.color = 'var(--red)';
+  }
+}
+
+function toggleVoertuigCard() {
+  const details = document.getElementById('w-voertuig-details');
+  const arrow = document.getElementById('w-voertuig-arrow');
+  const open = details.style.display === 'block';
+  details.style.display = open ? 'none' : 'block';
+  arrow.style.transform = open ? 'rotate(0deg)' : 'rotate(180deg)';
+}
+
+function formatDatum(d) {
+  if (!d || d.length < 8) return d;
+  return d.substring(6,8) + '-' + d.substring(4,6) + '-' + d.substring(0,4);
 }
 
 async function lookupKenteken() {
