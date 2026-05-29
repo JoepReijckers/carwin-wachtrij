@@ -183,6 +183,33 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
 .toast { position: fixed; bottom: calc(24px + var(--safe-bottom)); left: 50%; transform: translateX(-50%) translateY(20px); background: var(--bg3); border: 0.5px solid var(--border2); color: var(--text); font-size: 13px; padding: 10px 18px; border-radius: 20px; opacity: 0; transition: all 0.25s; z-index: 300; white-space: nowrap; }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 .section-divider { font-size: 11px; font-weight: 600; color: var(--text3); letter-spacing: 0.08em; text-transform: uppercase; padding: 4px 0 8px; border-bottom: 0.5px solid var(--border); margin-bottom: 13px; }
+
+/* RETOUREN */
+#tab-retour { display: none; flex-direction: column; flex: 1; overflow: hidden; min-height: 0; }
+.retour-card { background: var(--bg2); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 13px 14px; margin-bottom: 8px; border-left: 3px solid var(--amber); }
+.retour-card.aangevraagd { border-left-color: var(--green); opacity: 0.6; }
+.retour-top { display: flex; align-items: flex-start; justify-content: space-between; }
+.retour-left { flex: 1; min-width: 0; }
+.retour-eurocode { font-family: 'DM Mono', monospace; font-size: 14px; font-weight: 500; color: var(--text); margin-bottom: 4px; }
+.retour-leverancier { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 20px; background: var(--amber-dim); color: var(--amber); }
+.retour-leverancier.agc { background: var(--blue-dim); color: var(--blue); }
+.retour-leverancier.pilkington { background: var(--purple-dim); color: var(--purple); }
+.retour-leverancier.autover { background: var(--green-dim); color: var(--green); }
+.retour-leverancier.glavista { background: var(--teal-dim); color: var(--teal); }
+.retour-reden { font-size: 12px; color: var(--text2); margin-top: 6px; }
+.retour-bottom { display: flex; align-items: center; justify-content: space-between; margin-top: 10px; }
+.retour-date { font-size: 11px; color: var(--text3); }
+.retour-actions { display: flex; gap: 6px; }
+
+/* Aanvraag knop onderaan */
+.retour-footer { flex-shrink: 0; padding: 12px 18px calc(16px + var(--safe-bottom)); border-top: 0.5px solid var(--border); background: var(--bg); }
+.btn-aanvraag { width: 100%; padding: 14px; font-size: 14px; font-weight: 600; border-radius: var(--radius-sm); border: none; background: var(--purple); color: #fff; cursor: pointer; font-family: 'DM Sans', sans-serif; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.btn-aanvraag:disabled { opacity: 0.4; cursor: default; }
+.btn-aanvraag:active { opacity: 0.85; }
+
+/* Mail preview modal */
+.mail-preview { background: var(--bg3); border: 0.5px solid var(--border2); border-radius: var(--radius-sm); padding: 14px; font-size: 13px; color: var(--text2); line-height: 1.6; white-space: pre-wrap; margin-bottom: 16px; font-family: 'DM Sans', sans-serif; }
+.mail-preview strong { color: var(--text); }
 </style>
 </head>
 <body>
@@ -223,6 +250,11 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
         <span class="sb-icon">🔧</span>
         <span>Kalibraties</span>
         <span class="sb-badge teal" id="sb-badge-k">0</span>
+      </button>
+      <button class="sidebar-item" id="sb-retour" onclick="switchTab('retour');closeSidebar();">
+        <span class="sb-icon">↩️</span>
+        <span>Retouren</span>
+        <span class="sb-badge" id="sb-badge-r">0</span>
       </button>
     </div>
     <div style="padding:16px 20px calc(16px + env(safe-area-inset-bottom,0px));border-top:0.5px solid rgba(255,255,255,0.08);">
@@ -276,6 +308,35 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
     <div class="orders-scroll" id="kalibratie-list"><div class="empty-state"><p>Laden...</p></div></div>
   </div>
 </div>
+
+  <!-- RETOUREN SECTIE -->
+  <div id="tab-retour" style="display:none;flex-direction:column;flex:1;overflow:hidden;min-height:0;">
+    <div class="stats-row">
+      <div class="stat"><div class="stat-val" id="r-totaal">—</div><div class="stat-lbl">Open</div></div>
+      <div class="stat"><div class="stat-val" style="color:var(--purple);" id="r-pilkington">—</div><div class="stat-lbl">Pilkington</div></div>
+      <div class="stat"><div class="stat-val" style="color:var(--green);" id="r-aangevraagd">—</div><div class="stat-lbl">Aangevraagd</div></div>
+      <div class="stat"><div class="stat-val" id="r-overig">—</div><div class="stat-lbl">Overige</div></div>
+    </div>
+    <div class="filters-wrap">
+      <div class="filters">
+        <button class="filter-pill active" onclick="setRFilter('all',this)">Alles</button>
+        <button class="filter-pill" onclick="setRFilter('AGC',this)">AGC</button>
+        <button class="filter-pill" onclick="setRFilter('Pilkington',this)">Pilkington</button>
+        <button class="filter-pill" onclick="setRFilter('Autover',this)">Autover</button>
+        <button class="filter-pill" onclick="setRFilter('Glavista',this)">Glavista</button>
+        <button class="filter-pill" onclick="setRFilter('open',this)">Open</button>
+      </div>
+    </div>
+    <div class="sort-row">
+      <span class="sort-lbl" id="r-count-lbl">laden...</span>
+    </div>
+    <div class="orders-scroll" id="retour-list" style="padding-bottom:0;"><div class="empty-state"><p>Laden...</p></div></div>
+    <div class="retour-footer">
+      <button class="btn-aanvraag" id="btn-aanvraag-pilk" onclick="openMailModal()">
+        <span>✉</span> Vraag Pilkington retouren aan
+      </button>
+    </div>
+  </div>
 
 <!-- WERKORDER MODAL -->
 <div class="modal-overlay" id="modal-w" onclick="closeModalOutside(event,'modal-w')">
@@ -366,6 +427,46 @@ html, body { height: 100%; background: var(--bg); color: var(--text); font-famil
   </div>
 </div>
 
+<!-- RETOUR MODAL -->
+<div class="modal-overlay" id="modal-r" onclick="closeModalOutside(event,'modal-r')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Nieuwe retour</div>
+    <div class="form-row"><label>Leverancier</label>
+      <select id="r-leverancier">
+        <option>AGC</option>
+        <option>Pilkington</option>
+        <option>Autover</option>
+        <option>Glavista</option>
+      </select>
+    </div>
+    <div class="form-row"><label>Eurocode</label>
+      <input type="text" id="r-eurocode" placeholder="bijv. 3550AGSP" autocomplete="off" autocapitalize="characters">
+    </div>
+    <div class="form-row"><label>Reden retour</label>
+      <textarea id="r-reden" placeholder="bijv. Verkeerde maat geleverd, barst bij plaatsing..."></textarea>
+    </div>
+    <div class="modal-btns">
+      <button class="btn-cancel" onclick="closeModal('modal-r')">Annuleren</button>
+      <button class="btn-save" id="btn-r-save" onclick="saveRetour()">Opslaan</button>
+    </div>
+  </div>
+</div>
+
+<!-- MAIL PREVIEW MODAL -->
+<div class="modal-overlay" id="modal-mail" onclick="closeModalOutside(event,'modal-mail')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">Mail opzet — Pilkington</div>
+    <div class="mail-preview" id="mail-preview-content"></div>
+    <div style="display:flex;gap:8px;margin-bottom:8px;">
+      <button class="btn-cancel" style="flex:1;" onclick="copyMailText()">📋 Kopieer</button>
+      <button class="btn-save" style="flex:2;" onclick="markPilkingtonAangevraagd()">✓ Markeer als aangevraagd</button>
+    </div>
+    <button class="btn-cancel" style="width:100%;margin-top:0;" onclick="closeModal('modal-mail')">Sluiten</button>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -408,14 +509,18 @@ function switchTab(tab) {
   activeTab = tab;
   document.getElementById('tab-wachtrij').style.display = tab === 'wachtrij' ? 'flex' : 'none';
   document.getElementById('tab-kalibratie').style.display = tab === 'kalibratie' ? 'flex' : 'none';
-  document.getElementById('page-title').textContent = tab === 'wachtrij' ? 'Wachtrij' : 'Kalibraties';
+  document.getElementById('tab-retour').style.display = tab === 'retour' ? 'flex' : 'none';
+  const titles = { wachtrij: 'Wachtrij', kalibratie: 'Kalibraties', retour: 'Retouren' };
+  document.getElementById('page-title').textContent = titles[tab] || '';
   document.getElementById('sb-wachtrij').classList.toggle('active', tab === 'wachtrij');
   document.getElementById('sb-kalibratie').classList.toggle('active', tab === 'kalibratie');
+  document.getElementById('sb-retour').classList.toggle('active', tab === 'retour');
 }
 
 function openAddModal() {
   if (activeTab === 'wachtrij') openWerkorderModal();
-  else openKalibratieModal();
+  else if (activeTab === 'kalibratie') openKalibratieModal();
+  else if (activeTab === 'retour') openRetourModal();
 }
 
 // =================== WERKORDERS ===================
@@ -673,6 +778,151 @@ async function saveKalibratie() {
   loadKalibraties();
 }
 
+// =================== RETOUREN ===================
+let retouren = [];
+let rFilter = 'all';
+
+async function loadRetouren() {
+  const { data, error } = await db.from('retouren').select('*').order('created_at', { ascending: false });
+  if (error) {
+    console.warn('Retouren tabel niet bereikbaar:', error.message);
+    retouren = [];
+  } else {
+    retouren = data || [];
+  }
+  renderRetourenStats();
+  renderRetouren();
+}
+
+function renderRetourenStats() {
+  const open = retouren.filter(r => !r.aangevraagd);
+  const pilk = retouren.filter(r => r.leverancier === 'Pilkington' && !r.aangevraagd);
+  const aangevraagd = retouren.filter(r => r.aangevraagd);
+  const overig = retouren.filter(r => r.leverancier !== 'Pilkington' && !r.aangevraagd);
+
+  const el = (id) => document.getElementById(id);
+  if (el('r-totaal')) el('r-totaal').textContent = open.length;
+  if (el('r-pilkington')) el('r-pilkington').textContent = pilk.length;
+  if (el('r-aangevraagd')) el('r-aangevraagd').textContent = aangevraagd.length;
+  if (el('r-overig')) el('r-overig').textContent = overig.length;
+  if (el('sb-badge-r')) el('sb-badge-r').textContent = open.length;
+
+  // Aanvraag knop
+  const btn = el('btn-aanvraag-pilk');
+  if (btn) {
+    btn.disabled = pilk.length === 0;
+    btn.innerHTML = pilk.length > 0
+      ? `<span>✉</span> Vraag ${pilk.length} Pilkington retour${pilk.length > 1 ? 'en' : ''} aan`
+      : '<span>✉</span> Geen open Pilkington retouren';
+  }
+}
+
+function setRFilter(f, btn) {
+  rFilter = f;
+  document.querySelectorAll('#tab-retour .filter-pill').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderRetouren();
+}
+
+function renderRetouren() {
+  let list = [...retouren];
+  if (rFilter === 'open') list = list.filter(r => !r.aangevraagd);
+  else if (rFilter !== 'all') list = list.filter(r => r.leverancier === rFilter);
+
+  document.getElementById('r-count-lbl').textContent = list.length + ' retour' + (list.length === 1 ? '' : 'en');
+
+  const el = document.getElementById('retour-list');
+  if (list.length === 0) {
+    el.innerHTML = '<div class="empty-state"><div class="empty-icon">↩️</div><p>Geen retouren gevonden</p></div>';
+    return;
+  }
+
+  el.innerHTML = list.map(r => {
+    const lv = r.leverancier.toLowerCase();
+    return `<div class="retour-card${r.aangevraagd ? ' aangevraagd' : ''}">
+      <div class="retour-top">
+        <div class="retour-left">
+          <div class="retour-eurocode">${r.eurocode}</div>
+          <span class="retour-leverancier ${lv}">${r.leverancier}</span>
+          ${r.aangevraagd ? '<span style="margin-left:6px;font-size:11px;font-weight:600;color:var(--green);">✓ Aangevraagd</span>' : ''}
+        </div>
+        <div class="retour-actions">
+          ${!r.aangevraagd ? `<button class="act-btn done-btn" onclick="markRetourAangevraagd('${r.id}')">✓ Aangevraagd</button>` : ''}
+          <button class="act-btn" style="color:var(--red);border-color:rgba(255,95,95,0.35);" onclick="deleteRetour('${r.id}')">🗑</button>
+        </div>
+      </div>
+      <div class="retour-reden">${r.reden}</div>
+      <div class="retour-bottom">
+        <span class="retour-date">${new Date(r.created_at).toLocaleDateString('nl-NL',{day:'numeric',month:'short',year:'numeric'})}</span>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openRetourModal() {
+  ['r-eurocode','r-reden'].forEach(id => document.getElementById(id).value = '');
+  document.getElementById('r-leverancier').value = 'AGC';
+  document.getElementById('modal-r').classList.add('open');
+}
+
+async function saveRetour() {
+  const eurocode = document.getElementById('r-eurocode').value.trim().toUpperCase();
+  const reden = document.getElementById('r-reden').value.trim();
+  if (!eurocode || !reden) { toast('Eurocode en reden zijn verplicht'); return; }
+  const btn = document.getElementById('btn-r-save');
+  btn.disabled = true;
+  const payload = {
+    leverancier: document.getElementById('r-leverancier').value,
+    eurocode,
+    reden,
+    aangevraagd: false
+  };
+  const { error } = await db.from('retouren').insert(payload);
+  btn.disabled = false;
+  if (error) { toast('Fout: ' + (error.message || 'onbekend')); console.error(error); return; }
+  toast('Retour toegevoegd ✓');
+  closeModal('modal-r');
+  loadRetouren();
+}
+
+async function markRetourAangevraagd(id) {
+  await db.from('retouren').update({ aangevraagd: true }).eq('id', id);
+  toast('Gemarkeerd als aangevraagd ✓');
+  loadRetouren();
+}
+
+async function markPilkingtonAangevraagd() {
+  const ids = retouren.filter(r => r.leverancier === 'Pilkington' && !r.aangevraagd).map(r => r.id);
+  for (const id of ids) {
+    await db.from('retouren').update({ aangevraagd: true }).eq('id', id);
+  }
+  toast('Pilkington retouren gemarkeerd als aangevraagd ✓');
+  closeModal('modal-mail');
+  loadRetouren();
+}
+
+async function deleteRetour(id) {
+  await db.from('retouren').delete().eq('id', id);
+  toast('Retour verwijderd');
+  loadRetouren();
+}
+
+function openMailModal() {
+  const openPilk = retouren.filter(r => r.leverancier === 'Pilkington' && !r.aangevraagd);
+  if (openPilk.length === 0) { toast('Geen open Pilkington retouren'); return; }
+
+  const regels = openPilk.map(r => `- ${r.eurocode}   Reden: ${r.reden}`).join('\n');
+  const mailText = `Goedendag,\n\nIk zou graag een aantal retouren aanvragen:\n\n${regels}\n\nBedankt alvast!`;
+
+  document.getElementById('mail-preview-content').textContent = mailText;
+  document.getElementById('modal-mail').classList.add('open');
+}
+
+function copyMailText() {
+  const text = document.getElementById('mail-preview-content').textContent;
+  navigator.clipboard.writeText(text).then(() => toast('Gekopieerd naar klembord ✓'));
+}
+
 // =================== RDW KENTEKEN LOOKUP ===================
 function formatKenteken(input) {
   let val = input.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
@@ -836,10 +1086,12 @@ function closeModalOutside(e, id) { if (e.target === document.getElementById(id)
 db.channel('all-changes')
   .on('postgres_changes', { event: '*', schema: 'public', table: 'werkorders' }, loadWerkorders)
   .on('postgres_changes', { event: '*', schema: 'public', table: 'kalibratie_logs' }, loadKalibraties)
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'retouren' }, loadRetouren)
   .subscribe();
 
 loadWerkorders();
 loadKalibraties();
+loadRetouren();
 </script>
 </body>
 </html>
